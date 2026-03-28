@@ -6,22 +6,50 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 👉 TU API KEY (luego la pondremos como variable de entorno)
 const API_KEY = process.env.GEMINI_API_KEY;
+
+// 🔒 Control por IP
+let peticionesPorIP = {};
+
+// 🔒 Control de concurrencia
+let solicitudesActivas = 0;
+const LIMITE_GLOBAL = 5;
 
 // 👉 Endpoint principal
 app.post("/gemini", async (req, res) => {
+  const ip = req.ip;
+
+  // 🔒 Límite global
+  if (solicitudesActivas >= LIMITE_GLOBAL) {
+    return res.json({
+      respuesta: "⚠️ Hay muchas consultas en este momento. Intenta en unos segundos."
+    });
+  }
+
+  // 🔒 Límite por IP (5 segundos)
+  if (peticionesPorIP[ip] && Date.now() - peticionesPorIP[ip] < 5000) {
+    return res.json({
+      respuesta: "⚠️ Espera unos segundos antes de volver a consultar."
+    });
+  }
+
+  peticionesPorIP[ip] = Date.now();
+  solicitudesActivas++;
+
   try {
     const { mensaje, contexto } = req.body;
 
     // 🔒 Validaciones
-    if (!mensaje || mensaje.length > 300) {
-      return res.json({
-        respuesta: "Por favor, resume tu consulta."
-      });
+    if (!mensaje || mensaje.length < 5) {
+      solicitudesActivas--;
+      return res.json({ respuesta: "Consulta inválida" });
     }
 
-    // 👉 Instrucciones del sistema
+    if (mensaje.length > 300) {
+      solicitudesActivas--;
+      return res.json({ respuesta: "Por favor, resume tu consulta." });
+    }
+
     const systemInstruction = `
 Eres un asistente de la plataforma AlivioZen.
 
@@ -52,7 +80,7 @@ Reglas:
             }
           ],
           generationConfig: {
-            maxOutputTokens: 400,
+            maxOutputTokens: 200, // 🔥 reducido para ahorrar
             temperature: 0.7
           }
         })
@@ -72,10 +100,16 @@ Reglas:
     res.json({
       respuesta: "Error en el servidor, intenta nuevamente."
     });
+  } finally {
+    solicitudesActivas--;
   }
 });
 
-// 👉 Puerto dinámico (IMPORTANTE para Render)
+// 👉 Ruta base (para evitar "Cannot GET /")
+app.get("/", (req, res) => {
+  res.send("Servidor Gemini activo 🚀");
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
