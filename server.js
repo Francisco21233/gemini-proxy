@@ -6,27 +6,25 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 🔑 Se usa el nombre de la variable que vayas a poner en Render
+// 🔑 IMPORTANTE: En Render la variable DEBE llamarse GROQ_API_KEY
 const API_KEY = process.env.GROQ_API_KEY;
 
-// 🔒 Controles de seguridad
 let peticionesPorIP = {};
 let solicitudesActivas = 0;
 const LIMITE_GLOBAL = 5;
 
-// He dejado el nombre "/gemini" para que coincida con lo que tu Web busca, 
-// pero por dentro usa el motor de GROQ que es más confiable.
-app.post("/gemini", async (req, res) => {
+// Endpoint que coincide con tu URL: https://gemini-proxy-lwvz.onrender.com/groq
+app.post("/groq", async (req, res) => {
   const ip = req.ip;
 
-  // 1. Control de saturación
+  // Control de saturación
   if (solicitudesActivas >= LIMITE_GLOBAL) {
-    return res.json({ respuesta: "⚠️ Sistema ocupado. Intenta en 5 segundos." });
+    return res.json({ respuesta: "⚠️ Sistema saturado. Reintenta en 5 segundos." });
   }
 
-  // 2. Control de Spam por IP
+  // Control de Spam (5 segundos entre preguntas por usuario)
   if (peticionesPorIP[ip] && Date.now() - peticionesPorIP[ip] < 5000) {
-    return res.json({ respuesta: "⚠️ Por favor, espera un poco entre preguntas." });
+    return res.json({ respuesta: "⚠️ Por favor, espera 5 segundos entre consultas." });
   }
 
   peticionesPorIP[ip] = Date.now();
@@ -34,21 +32,24 @@ app.post("/gemini", async (req, res) => {
 
   try {
     const { mensaje, contexto } = req.body;
+    
+    // --- LOG DE DEPURACIÓN 1 ---
+    console.log("-----------------------------------------");
+    console.log("📥 MENSAJE RECIBIDO DE LA WEB:", mensaje);
 
-    // 3. Validaciones de entrada
-    if (!mensaje || mensaje.length < 5) {
-      return res.json({ respuesta: "Consulta muy corta." });
+    if (!mensaje || mensaje.length < 3) {
+      return res.json({ respuesta: "Consulta demasiado corta." });
     }
 
     const systemInstruction = `Eres el asistente de AlivioZen. 
     REGLAS: 
     1. Solo salud y bienestar. 
-    2. Usa estos profesionales: ${contexto}. 
-    3. Si uno encaja, nómbralo. 
-    4. Respuesta breve (máx 1 párrafo). 
+    2. Profesionales disponibles: ${contexto}. 
+    3. Si uno encaja con el problema, nómbralo específicamente. 
+    4. Respuesta corta (máx 1 párrafo). 
     5. No des diagnósticos médicos.`;
 
-    // 4. Llamada a GROQ (Formato compatible con OpenAI)
+    // Llamada a Groq
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -56,36 +57,41 @@ app.post("/gemini", async (req, res) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "llama3-8b-8192", // Este modelo es gratuito y vuela de rápido
+        model: "llama3-8b-8192", 
         messages: [
           { role: "system", content: systemInstruction },
           { role: "user", content: mensaje }
         ],
-        max_tokens: 250,
+        max_tokens: 300,
         temperature: 0.7
       })
     });
 
     const data = await response.json();
 
-    // 5. Manejo de errores detallado (se verá en tu web si algo falla)
+    // --- LOG DE DEPURACIÓN 2 ---
+    console.log("📤 RESPUESTA DE GROQ:", JSON.stringify(data));
+
     if (data.error) {
-      console.error("Error de Groq:", data.error);
+      console.error("❌ ERROR DETECTADO EN GROQ:", data.error.message);
       return res.json({ respuesta: "Error de la IA: " + data.error.message });
     }
 
-    const texto = data?.choices?.[0]?.message?.content || "No tengo una respuesta clara en este momento.";
+    const texto = data?.choices?.[0]?.message?.content || "No recibí una respuesta válida.";
     res.json({ respuesta: texto });
 
   } catch (error) {
-    console.error("Error Servidor:", error);
-    res.json({ respuesta: "Error de conexión con el servidor." });
+    // --- LOG DE DEPURACIÓN 3 ---
+    console.error("❌ ERROR CRÍTICO EN EL SERVIDOR:", error.message);
+    res.json({ respuesta: "Error de conexión: " + error.message });
   } finally {
     solicitudesActivas--;
+    console.log("✅ Proceso finalizado para esta solicitud.");
+    console.log("-----------------------------------------");
   }
 });
 
-app.get("/", (req, res) => res.send("Servidor de AlivioZen con Groq activo 🚀"));
+app.get("/", (req, res) => res.send("Servidor de AlivioZen (Groq) funcionando correctamente 🚀"));
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Servidor corriendo en puerto", PORT));
+const PORT = process.env.PORT || 10000; 
+app.listen(PORT, () => console.log("Servidor escuchando en puerto", PORT));
