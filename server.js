@@ -72,11 +72,7 @@ Reglas:
           contents: [
             {
               role: "user",
-              parts: [
-                {
-                  text: systemInstruction + "\n\nConsulta: " + mensaje
-                }
-              ]
+              parts: [{ text: `INSTRUCCIONES: ${systemInstruction}\n\nPROFESIONALES DISPONIBLES: ${contexto}\n\nPREGUNTA DEL USUARIO: ${mensaje}` }]
             }
           ],
           generationConfig: {
@@ -87,7 +83,17 @@ Reglas:
       }
     );
 
+    // --- BLOQUE DE DEPURACIÓN AÑADIDO ---
     const data = await response.json();
+    console.log("Respuesta de Google:", JSON.stringify(data)); 
+
+    // Si Google devuelve un error específico (ej. API Key inválida)
+    if (data.error) {
+        return res.json({ 
+            respuesta: "Error de Google: " + data.error.message 
+        });
+    }
+    // ------------------------------------
 
     const texto =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ||
