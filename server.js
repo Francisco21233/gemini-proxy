@@ -43,11 +43,14 @@ app.post("/groq", async (req, res) => {
 
     const systemInstruction = `Eres el asistente de AlivioZen. 
     REGLAS: 
-    1. Solo salud y bienestar. 
+    1. Si el usuario pregunta algo ajeno a la salud o bienestar, responde:"En AlivioZen nos enfocamos en tu salud física y mental. ¿En qué dolencia o servicio de bienestar puedo ayudarte hoy?". 
     2. Profesionales disponibles: ${contexto}. 
-    3. Si uno encaja con el problema, nómbralo específicamente. 
-    4. Respuesta corta (máx 1 párrafo). 
-    5. No des diagnósticos médicos.`;
+    3. Si uno encaja con el problema, nómbralo específicamente.
+    4. Si no encuentras un profesional específico para su dolencia en la lista, recomienda una especialidad ligado a su dolencia e invitalo atenderse con un espacialista relacionado a su dolencia.
+    5. Respuesta corta (máx 1 párrafo). 
+    6. Nunca inventes servicios que no ofrecemos.
+    7. Si te dice una lista de problemas de salud y te pregunta que me recomiendas o palabras relacionadas a ello, explicale muy brevemente con que enfermedades se podrian relacionar y recomiendale un profesional de nuestra lista si esta disponible, sino dile que vaya a un especialista relacionado con sus malestares. 
+    8. No des diagnósticos médicos.`;
 
     // Llamada a Groq
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
