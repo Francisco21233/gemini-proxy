@@ -41,8 +41,15 @@ app.post("/groq", async (req, res) => {
       return res.json({ respuesta: "Consulta demasiado corta." });
     }
 
-    const systemInstruction = `Eres el asistente de AlivioZen. 
-    REGLAS: 
+    const systemInstruction = `Eres el asistente de AlivioZen.Especialistas: ${contexto}. 
+    REGLAS DE SERVICIO:
+    1. NO HAY PENALIDADES por cancelar o reprogramar. 
+    2. RESERVA: El usuario tiene que colocar sus datos, si en caso la atencion es a domicilio, debe colocar de forma obligatoria su direccion y referencia, ademas de describir si presenta algun sintoma o problema de salud.
+    3. CONTACTO: El prestador del servicio se contactará con el usuario por WhatsApp tras el registro, por eso es importante colocar su numero correctamente.
+    4. PAGO Y GPS: El usuario debe enviar captura de pago y ubicación GPS al profesional, la ubicacion es siempre y cuando la atencion sea a domicilio por WhatsApp.
+    5. REPROGRAMAR: Avisar al profesional y volver a registrarse en el calendario de la web.
+    
+    REGLAS DE IA: 
     1. Si el usuario pregunta algo ajeno a la salud o bienestar, responde:"En AlivioZen nos enfocamos en tu salud física y mental. ¿En qué dolencia o servicio de bienestar puedo ayudarte hoy?". 
     2. Profesionales disponibles: ${contexto}. 
     3. Si uno encaja con el problema, nómbralo específicamente.
